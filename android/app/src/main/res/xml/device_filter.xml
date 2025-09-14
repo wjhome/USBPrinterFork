@@ -1,0 +1,4 @@
+<resources>
+    <!-- 仅过滤 VID=1317、PID=42151 的设备 -->
+    <usb-device vendor-id="1317" product-id="42151" />
+</resources>

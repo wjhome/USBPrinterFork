@@ -1,0 +1,23 @@
+{
+  "name": "my-vite-demo-project",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/barcode-scanner": "^2.1.0",
+    "@capacitor/core": "^7.4.3",
+    "simple-barcode-scanner": "^2.0.0",
+    "vue": "^3.5.18"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "vite": "^7.1.2"
+  }
+}
