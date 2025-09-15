@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 允许所有USB设备（调试用，实际可指定特定VID/PID） -->
+    <usb-device vendor-id="0" product-id="0" />
+    <!-- 示例：添加特定设备（替换为你的打印机VID/PID） -->
+    <!-- <usb-device vendor-id="1234" product-id="5678" /> -->
+</resources>

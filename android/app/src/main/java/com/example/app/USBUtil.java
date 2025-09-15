@@ -1,22 +1,22 @@
 package com.print.usbprint.util;
 
 import android.content.Context;
-import android.content.Intent;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
-import android.hardware.usb.UsbEndpoint;
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 public class USBUtil {
+    private static final String TAG = "USBUtil";
     private static USBUtil instance;
     private UsbManager usbManager;
     private UsbDeviceConnection connection;
-    private UsbInterface usbInterface;
-    private UsbEndpoint outEndpoint; // 输出端点（发送数据到设备）
+    private UsbEndpoint outputEndpoint; // 输出端点（用于发送数据）
 
     private USBUtil() {}
 
@@ -33,76 +33,97 @@ public class USBUtil {
         }
     }
 
-    // 获取设备列表
     public List<UsbDevice> getDeviceList(Context context) {
-        init(context);
+        if (usbManager == null) init(context);
         HashMap<String, UsbDevice> deviceMap = usbManager.getDeviceList();
         return new ArrayList<>(deviceMap.values());
     }
 
-    // 检查是否有设备权限
-    public boolean hasPermission(UsbDevice device) {
-        return usbManager.hasPermission(device);
-    }
-
-    // 请求设备权限
-    public void requestPermission(UsbDevice device, Context context, String action) {
-        PendingIntent permissionIntent = PendingIntent.getBroadcast(
-            context, 0, new Intent(action), PendingIntent.FLAG_IMMUTABLE
-        );
-        usbManager.requestPermission(device, permissionIntent);
-    }
-
-    // 打开设备连接
-    public boolean openDevice(UsbDevice device) {
+    public boolean IsOpen(UsbDevice device, Context context) {
+        if (usbManager == null) init(context);
         if (device == null) return false;
 
-        // 查找第一个可用的接口和输出端点
-        for (int i = 0; i < device.getInterfaceCount(); i++) {
-            UsbInterface intf = device.getInterface(i);
-            // 查找输出端点（方向为OUT）
-            for (int j = 0; j < intf.getEndpointCount(); j++) {
-                UsbEndpoint endpoint = intf.getEndpoint(j);
-                if (endpoint.getDirection() == UsbEndpoint.DIRECTION_OUT) {
-                    usbInterface = intf;
-                    outEndpoint = endpoint;
-                    break;
-                }
-            }
-            if (usbInterface != null) break;
-        }
-
-        if (usbInterface == null || outEndpoint == null) {
-            return false; // 未找到可用端点
-        }
-
-        // 打开设备连接
-        connection = usbManager.openDevice(device);
-        if (connection == null) {
+        // 检查权限
+        if (!usbManager.hasPermission(device)) {
+            Log.e(TAG, "No USB permission for device");
             return false;
         }
 
-        //  claim接口（获取接口使用权）
-        return connection.claimInterface(usbInterface, true);
-    }
-
-    // 发送数据到设备
-    public int sendData(byte[] data) {
-        if (connection == null || outEndpoint == null || data == null) {
-            return -1;
+        // 打开设备连接（若未连接）
+        if (connection == null) {
+            connection = usbManager.openDevice(device);
+            if (connection == null) {
+                Log.e(TAG, "Failed to open device connection");
+                return false;
+            }
+            // 查找批量输出端点
+            outputEndpoint = findOutputEndpoint(device);
+            if (outputEndpoint == null) {
+                Log.e(TAG, "No bulk output endpoint found");
+                connection.close();
+                connection = null;
+                return false;
+            }
         }
-        // 通过输出端点发送数据
-        return connection.bulkTransfer(outEndpoint, data, data.length, 1000); // 超时1秒
+        return true;
     }
 
-    // 关闭设备连接
-    public void closeDevice() {
+    public void sendData(byte[] data) {
+        if (connection == null || outputEndpoint == null) {
+            Log.e(TAG, "Connection or endpoint is null");
+            return;
+        }
+        // 通过批量传输发送数据（超时1秒）
+        int bytesWritten = connection.bulkTransfer(outputEndpoint, data, data.length, 1000);
+        if (bytesWritten < 0) {
+            Log.e(TAG, "Failed to send data, error code: " + bytesWritten);
+        } else {
+            Log.d(TAG, "Sent " + bytesWritten + " bytes");
+        }
+    }
+
+    /**
+     * 查找设备的批量输出端点（关键修正：使用常量值替代可能未识别的符号）
+     */
+    private UsbEndpoint findOutputEndpoint(UsbDevice device) {
+        if (device == null || connection == null) {
+            Log.e(TAG, "Device or connection is null");
+            return null;
+        }
+
+        // 遍历设备的所有接口
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            UsbInterface usbInterface = device.getInterface(i);
+            if (usbInterface == null) continue;
+
+            // 申请占用接口（必须操作，否则无法使用端点）
+            if (!connection.claimInterface(usbInterface, true)) {
+                Log.e(TAG, "Failed to claim interface " + i);
+                continue;
+            }
+
+            // 遍历接口的所有端点，查找批量输出端点
+            for (int j = 0; j < usbInterface.getEndpointCount(); j++) {
+                UsbEndpoint endpoint = usbInterface.getEndpoint(j);
+                if (endpoint == null) continue;
+
+                // 关键修正：使用常量值 0x02 代替 UsbEndpoint.TYPE_BULK（批量传输）
+                // 0x00 代替 UsbEndpoint.DIRECTION_OUT（输出方向）
+                if (endpoint.getType() == 0x02 && endpoint.getDirection() == 0x00) {
+                    Log.d(TAG, "Found bulk output endpoint at interface " + i + ", endpoint " + j);
+                    return endpoint;
+                }
+            }
+        }
+        return null;
+    }
+
+    // 关闭连接
+    public void close() {
         if (connection != null) {
-            connection.releaseInterface(usbInterface);
             connection.close();
             connection = null;
         }
-        usbInterface = null;
-        outEndpoint = null;
+        outputEndpoint = null;
     }
 }
