@@ -9,7 +9,7 @@
 				<li v-for="device in devices" :key="device.name">VID: {{ device.vid }}, PID: {{ device.pid }}, 名称: {{ device.name }}</li>
 			</ul>
 		</div>
-
+		test
 		<div v-if="printStatus" class="status">{{ printStatus }}</div>
 	</div>
 </template>
