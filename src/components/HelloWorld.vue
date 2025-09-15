@@ -1,86 +1,60 @@
 <template>
 	<div class="usb-printer">
 		<button @click="getUSBDevices">获取USB设备列表</button>
-		<button @click="printTest" :disabled="!isTargetDeviceConnected">测试打印（目标设备）</button>
+		<button @click="printTest">测试打印</button>
 
-		<!-- 目标设备连接状态 -->
-		<div class="status">
-			目标设备 (VID:1317, PID:42151) 状态:
-			<span :class="isTargetDeviceConnected ? 'connected' : 'disconnected'">
-				{{ isTargetDeviceConnected ? '已连接' : '未连接' }}
-			</span>
-		</div>
-
-		<!-- 设备列表 -->
 		<div v-if="devices.length">
 			<h3>已连接设备：</h3>
 			<ul>
-				<li v-for="device in devices" :key="`${device.vid}-${device.pid}`">
-					VID: {{ device.vid }}, PID: {{ device.pid }}, 名称: {{ device.name }}
-					<span v-if="device.vid === 1317 && device.pid === 42151" class="target-tag">（目标设备）</span>
-				</li>
+				<li v-for="device in devices" :key="device.name">VID: {{ device.vid }}, PID: {{ device.pid }}, 名称: {{ device.name }}</li>
 			</ul>
 		</div>
 
-		<!-- 打印状态 -->
-		<div class="print-status" v-if="printStatus">{{ printStatus }}</div>
+		<div v-if="printStatus" class="status">{{ printStatus }}</div>
 	</div>
 </template>
 
 <script setup>
 import { registerPlugin } from '@capacitor/core'
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
+// 注册插件
 const USBPrintPlugin = registerPlugin('USBPrintPlugin')
 
 const devices = ref([])
 const printStatus = ref('')
-const isTargetDeviceConnected = ref(false) // 目标设备状态
 
-// 获取设备列表并检测目标设备
+// 获取设备列表
 const getUSBDevices = async () => {
 	try {
 		const result = await USBPrintPlugin.getDevices()
 		devices.value = result.devices || []
-		console.log('设备列表:', devices.value)
-
-		// 检测目标设备是否存在
-		isTargetDeviceConnected.value = devices.value.some((device) => device.vid === 1317 && device.pid === 42151)
-		printStatus.value = isTargetDeviceConnected.value ? '发现目标设备' : '未发现目标设备'
+		printStatus.value = `找到 ${devices.value.length} 台设备`
 	} catch (e) {
-		console.error('获取设备失败:', e)
-		printStatus.value = `获取设备失败: ${e.message}`
-		isTargetDeviceConnected.value = false
+		printStatus.value = '获取设备失败：' + e.message
 	}
 }
 
-// 测试打印（仅使用目标设备）
+// 测试打印
 const printTest = async () => {
-	if (!isTargetDeviceConnected.value) {
-		printStatus.value = '目标设备未连接'
+	if (devices.value.length === 0) {
+		printStatus.value = '请先获取设备列表'
 		return
 	}
 
 	try {
-		const targetDevice = devices.value.find((d) => d.vid === 1317 && d.pid === 42151)
+		// 使用第一个设备打印
+		const target = devices.value[0]
 		await USBPrintPlugin.printText({
-			vid: targetDevice.vid,
-			pid: targetDevice.pid,
-			text: `扫描内容: ${data.value || '无'}\n测试打印时间: ${new Date().toLocaleString()}`,
+			vid: target.vid,
+			pid: target.pid,
+			text: '测试打印：Hello USB Printer!\n这是第二行内容\n中文测试：打印成功',
 		})
-		printStatus.value = '打印成功!'
+		printStatus.value = '打印成功！'
 	} catch (e) {
-		console.error('打印失败:', e)
-		printStatus.value = `打印失败: ${e.message}`
+		printStatus.value = '打印失败：' + e.message
 	}
 }
-
-// 监听设备变化（新增：定期刷新设备列表）
-onMounted(() => {
-	getUSBDevices()
-	// 每5秒刷新一次设备状态
-	setInterval(getUSBDevices, 5000)
-})
 </script>
 
 <style scoped>

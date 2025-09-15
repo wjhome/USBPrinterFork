@@ -27,11 +27,9 @@ function scannerOn() {
 
 // 关闭扫描
 function scannerDestroy() {
-	if (scanner.isListening()) {
-		// 检查是否在监听状态
-		scanner.off()
-		console.log('扫描已关闭')
-	}
+	// 检查是否在监听状态
+	scanner.off()
+	console.log('扫描已关闭')
 }
 
 onMounted(() => {
