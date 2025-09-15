@@ -6,23 +6,32 @@ import { onMounted, ref } from 'vue'
 const data = ref(null)
 const result = ref(null)
 const scanner = BarcodeScanner({ validKey: /^[a-zA-Z0-9\-]$/ }) // eslint-disable-line
+
+// 启动扫描（修复setInterval为setTimeout，避免重复关闭）
 function scannerOn() {
 	scanner.on(
 		(code, event) => {
 			event.preventDefault()
 			data.value = code
 			result.value = event
-			setInterval(() => {
+			// 扫描成功后10秒关闭（仅执行一次）
+			setTimeout(() => {
 				scannerDestroy()
 			}, 10000)
 		},
 		(error) => {
-			console.error(error)
+			console.error('扫描错误:', error)
 		}
 	)
 }
+
+// 关闭扫描
 function scannerDestroy() {
-	scanner.off()
+	if (scanner.isListening()) {
+		// 检查是否在监听状态
+		scanner.off()
+		console.log('扫描已关闭')
+	}
 }
 
 onMounted(() => {
@@ -31,25 +40,17 @@ onMounted(() => {
 </script>
 
 <template>
-	<div>demo</div>
-	<div>data: {{ data }}</div>
-	<div>result: {{ result }}</div>
-	<button @click="scannerOn">scan now</button>
-	123
-	<HelloWorld />
+	<div>
+		<div>扫描结果: {{ data || '未扫描到内容' }}</div>
+		<button @click="scannerOn">重新扫描</button>
+		<HelloWorld />
+	</div>
 </template>
 
 <style scoped>
-.logo {
-	height: 6em;
-	padding: 1.5em;
-	will-change: filter;
-	transition: filter 300ms;
-}
-.logo:hover {
-	filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-	filter: drop-shadow(0 0 2em #42b883aa);
+button {
+	margin-top: 10px;
+	padding: 8px 16px;
+	cursor: pointer;
 }
 </style>
